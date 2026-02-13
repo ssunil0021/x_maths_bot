@@ -23,7 +23,7 @@ application = ApplicationBuilder().token(BOT_TOKEN).build()
 IST = pytz.timezone("Asia/Kolkata")
 
 
-# ------------------ HANDLERS ------------------
+# ---------------- HANDLERS ----------------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -52,13 +52,14 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button_router))
 
 
-# ------------------ FLASK WEBHOOK ------------------
+# ------------- WEBHOOK ROUTE (SYNC VERSION) -------------
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
-async def webhook():
+def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, application.bot)
-    await application.process_update(update)
+
+    asyncio.run(application.process_update(update))
     return "ok"
 
 
@@ -67,18 +68,11 @@ def home():
     return "Bot is running!"
 
 
-# ------------------ STARTUP ------------------
-
-async def main():
-    await application.initialize()
-    await application.start()
-    await application.bot.set_webhook(
-        url=f"{os.environ.get('RAILWAY_PUBLIC_DOMAIN')}/{BOT_TOKEN}"
-    )
-
+# ------------- STARTUP -------------
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    asyncio.run(application.initialize())
+    asyncio.run(application.start())
+
     PORT = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=PORT)
