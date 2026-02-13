@@ -1,6 +1,7 @@
 import os
 import datetime
 import pytz
+import asyncio
 from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -21,6 +22,8 @@ application = ApplicationBuilder().token(BOT_TOKEN).build()
 
 IST = pytz.timezone("Asia/Kolkata")
 
+
+# ------------------ HANDLERS ------------------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -49,10 +52,13 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button_router))
 
 
+# ------------------ FLASK WEBHOOK ------------------
+
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), application.bot)
-    application.update_queue.put_nowait(update)
+async def webhook():
+    data = request.get_json(force=True)
+    update = Update.de_json(data, application.bot)
+    await application.process_update(update)
     return "ok"
 
 
@@ -61,8 +67,18 @@ def home():
     return "Bot is running!"
 
 
+# ------------------ STARTUP ------------------
+
+async def main():
+    await application.initialize()
+    await application.start()
+    await application.bot.set_webhook(
+        url=f"{os.environ.get('RAILWAY_PUBLIC_DOMAIN')}/{BOT_TOKEN}"
+    )
+
+
 if __name__ == "__main__":
-    PORT = int(os.environ.get("PORT", 8000))
-    application.initialize()
-    application.start()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+    PORT = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=PORT)
